@@ -5,6 +5,8 @@
 ## Three Index Formulation
 
 有向图 $G(V,A)$, depot $0$ 可以用两个点 $o$ 和 $d$ 表示 
+
+
 $$
 V:=N \cup \{ o,d \} \ \text{and}\  A:= (V \setminus \{ d \}) \times(V \setminus \{ o \})
 $$
@@ -15,6 +17,8 @@ $$
 - $u_{ik}$ $k$ 车在到达 $i$ 时的 accumulative demand 
 
 同样定义 $q_{o}=q_{d}=0$
+
+
 $$
 \begin{aligned}
 	\min & \quad \sum_{k \in K} c^{\top}x_{k}\\
