@@ -114,7 +114,7 @@ class CVPR:
         K = list(range(self.vehicle_num))
 
         # 创建模型
-        m = Model("CVRP")
+        m = Model("CVRP_three_index")
 
         # 设置GAP
         m.setParam("MIPGap", 0.05)
@@ -240,6 +240,7 @@ class CVPR:
         plt.ylabel("y")
         plt.title(f"CVPR With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers")
         plt.legend()
+        plt.savefig(f"CVRP\Figs\CVPR_3_index With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers.png")
         plt.show()
 
     def print_problem_information(self):
@@ -251,8 +252,8 @@ class CVPR:
 
 
 def main():
-    CUSTOMER_NUM = 15
-    VEHICLE_NUM = 5
+    CUSTOMER_NUM = 5
+    VEHICLE_NUM = 4
     VEHICLE_CAPACITY = 100
     digraph = initialize_graph(data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM)
     model = CVPR(digraph, vehicle_num=VEHICLE_NUM, vehicle_capacity=VEHICLE_CAPACITY)
