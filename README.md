@@ -119,7 +119,7 @@ T_{ik}+t_{ij}+s_{i}-T_{jk} \leq (1-x_{ijk})M_{ij} \quad \forall k \in K, (i,j) \
 $$
 
 
-其中 $M_{ij}$ 是一个足够大的常数，可以设成$\max\{ b_{i}+s_{i}+t_{ij}-a_{j},0 \}$
+其中 $M_{ij}$ 是一个足够大的常数，可以设成  $\max\{ b_{i}+s_{i}+t_{ij}-a_{j},0 \}$
 
 
 
