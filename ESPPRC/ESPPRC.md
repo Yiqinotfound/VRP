@@ -7,6 +7,7 @@
 - $L$ The number of resources  
 - $d_{ij}^{l}\geq0$ The consumption of resource $l$ along $(i,j)$, 满足三角不等式 
 - 每个 node $i$ 和 resource $l$ 对应区间 $[a_{i}^{l},b_{i}^{l}]$, 代表从 $p$ 到 $i$ $l$ 消耗的区间, 可以表示 Time Window约束，或者用 $[0,Q]$ 表示 capacity constraints, 消耗量用 $t_{i}^{l}$ 表示
+
 $$
 \begin{aligned}
 	\min & \quad \sum_{(i,j)\in A}c_{ij}x_{ij}\\
