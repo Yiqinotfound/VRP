@@ -65,23 +65,33 @@ $$
 
 Time widow can be **soft or hard**, **one-sided or two-sided**
 
-- 用一个有向图 $G=(V,A)$，建模，$N=V\setminus \{ 0,n+1 \}$ 是 customer 节点
-- $q_{i}$ 是 **demand**, $s_{i}$ 是 **service time**
+- 用一个有向图 $G=(V,A)$，建模， $N = V \setminus \{ 0,n+1 \}$ 是 customer 节点
+-  $q_{i}$  是 **demand**,  $s_{i}$  是 **service time**
+-  
+
 $$
 q_{0}=q_{n+1}=s_{0}=s_{n+1}=0
 $$
+
+
 $$
 [a_{0},b_{0}]=[a_{n+1},b_{n+1}]
 $$
+
+
 其中 $a_{0},b_{0}$ 是 earliest possible departure time from the depot and the latest possible arrival time at the depot.
 
 假设 travel time 满足三角不等式，feasible solutions exists only if 
+
+
 $$
 \begin{align}
 a_{0}\leq& \min_{i \in V\setminus \{ 0 \}}\{ b_{i}-t_{0i} \} \\
 b_{0}\geq& \max_{i \in V\setminus \{ 0 \}} \{  \max\{ a_{0}+t_{0i},a_{i} \}+s_{i}+t_{i,n+1}\}
 \end{align}
 $$
+
+
 如果 $a_{i}+s_{i}+t_{ij}>b_{i}$ 或者 $q_{i}+q_{j}>Q$, arc $(i,j)$ 就可以直接被省略 
 
 - 如果允许待在 depot
