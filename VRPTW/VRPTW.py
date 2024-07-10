@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import scienceplots
 import sys
 import os
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
@@ -39,10 +40,10 @@ class VRPTW:
 
         self.M = np.zeros((self.digraph.node_num, self.digraph.node_num))
         self.cal_M()
-        
+
         self.routes = None
 
-    def solve(self):
+    def violently_solve(self):
 
         # 创建模型
         m = Model("VRPTW_three_index")
@@ -120,21 +121,18 @@ class VRPTW:
         ## 容量约束
         m.addConstrs(
             quicksum(
-                self.digraph.nodes[i].demand * x[i, j, k]
-                for i in self.I_set
-                for j in self.J_set
-                if j != i
+                self.digraph.nodes[i].demand
+                * quicksum(x[i, j, k] for j in self.J_set if j != i)
+                for i in self.N
             )
             <= self.vehicle_capacity
             for k in self.K
         )
-        
+
         # 求解
         m.optimize()
-        self.objective = m.ObjVal 
+        self.objective = m.ObjVal
         self.routes = self.get_routes(m)
-    
-
 
     # 计算MTZ约束中的M
     def cal_M(self):
@@ -148,7 +146,7 @@ class VRPTW:
                     - self.digraph.nodes[j].ready_time,
                     0,
                 )
-                
+
     def get_routes(self, m):
         routes = []
         for k in range(self.vehicle_num):
@@ -157,15 +155,15 @@ class VRPTW:
             route.append(i)
             while True:
                 if i == self.digraph.node_num - 1:
-                    break 
-                for j in range(1,self.digraph.node_num):
+                    break
+                for j in range(1, self.digraph.node_num):
                     if j != i and m.getVarByName(f"x[{i},{j},{k}]").x > 0.5:
                         route.append(j)
                         i = j
                         break
             routes.append(route)
         return routes
-    
+
     def plot_solution(self):
         plt.style.use(["science"])
         plt.figure(figsize=(10, 10))
@@ -196,11 +194,15 @@ class VRPTW:
             plt.plot(x, y, marker="o")
         plt.xlabel("x")
         plt.ylabel("y")
-        plt.title(f"VPRTW With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers")
+        plt.title(
+            f"VPRTW With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers"
+        )
         plt.legend()
-        plt.savefig(f"VRPTW\Figs\VPRTW_3_index With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers.png")
-        plt.show() 
-        
+        plt.savefig(
+            f"VRPTW\Figs\VPRTW With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers.png"
+        )
+        plt.show()
+
     def print_problem_information(self):
         print("-" * 20, "Problem Information", "-" * 20)
         print(f"节点总数: {self.digraph.node_num}")
@@ -211,14 +213,15 @@ class VRPTW:
 
 def main():
     CUSTOMER_NUM = 10
-    VEHICLE_NUM = 4
+    VEHICLE_NUM = 5
     VEHICLE_CAPACITY = 100
     digraph = initialize_graph(
         data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM
     )
     model = VRPTW(digraph, vehicle_num=VEHICLE_NUM, vehicle_capacity=VEHICLE_CAPACITY)
-    model.solve()
+    model.violently_solve()
     model.plot_solution()
+
 
 if __name__ == "__main__":
     main()

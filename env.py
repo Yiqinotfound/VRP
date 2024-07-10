@@ -33,9 +33,9 @@ class Route:
 
 class DiGraph:
     def __init__(self, customer_nodes: List[Node], depot: Node):
+        self.customer_num = len(customer_nodes)
         self.nodes: List[Node] = [depot] + customer_nodes + [depot]
         self.depot = depot
-        self.customer_num = len(customer_nodes)
         self.node_num = len(self.nodes)
 
         # 计算邻接矩阵
