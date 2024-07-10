@@ -91,9 +91,12 @@ $$
 
 ##  MIP Formulation
 
+
+
 决策变量
 - $x_{ijk}$
 - $T_{ik}$
+
 
 $$
 \begin{align}
@@ -108,11 +111,14 @@ $$
 & \quad x_{ijk}\in \{ 0,1 \} & \forall k \in K,(i,j) \in A
 \end{align}
 $$
+
 第四条约束可以用 MTZ 线性化
 
 $$
 T_{ik}+t_{ij}+s_{i}-T_{jk} \leq (1-x_{ijk})M_{ij} \quad \forall k \in K, (i,j) \in A
 $$
+
+
 其中 $M_{ij}$ 是一个足够大的常数，可以设成$\max\{ b_{i}+s_{i}+t_{ij}-a_{j},0 \}$
 
 
