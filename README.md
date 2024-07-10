@@ -1,5 +1,10 @@
-恶补VRP的基础知识!
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/25423296/163456776-7f95b81a-f1ed-45f7-b7ab-8fa810d529fa.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://user-images.githubusercontent.com/25423296/163456779-a8556205-d0a5-45e2-ac17-42d089e3c3f8.png">
+  <img alt="Shows an illustrated sun in light mode and a moon with stars in dark mode." src="https://user-images.githubusercontent.com/25423296/163456779-a8556205-d0a5-45e2-ac17-42d089e3c3f8.png">
+</picture>
 
+来和我一起恶补VRP吧!![图片描述](https://iconfont.alicdn.com/p/illus/preview_image/pMhdd5wW6xfB/6433808a-5ba2-4541-b70b-b8a819afa748.png)
 # CVRP
 
 ## Three Index Formulation
@@ -154,3 +159,5 @@ $$
 	&\quad y_{r}\in \{  0,1 \}\\
 \end{aligned}
 $$
+
+子问题是ESPPRC问题，需要用到[动态规划求解ESPPRC](ESPPRC/ESPPRC.md)的知识

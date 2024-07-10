@@ -1,3 +1,19 @@
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
 # ESPPRC
 
 找到 $p\to d$ 的最小 cost 路径，且每个节点只能访问一遍 
@@ -30,8 +46,8 @@ $$
 **Dominance Rule**:
 
 $X_{pi}'$ 和 $X_{p i }^{*}$ 是两个不同的 path, 满足以下两个条件 $X_{p i}'$ dominates $X_{pi}^{*}$
-- $C_{i}'\leq C_{i}^{*}$ 且 $T_{i}'^{l} \leq T_{i}^{*l}$ 
-- $ (R'_{i}, C'_{i}) \neq (R^{*}_{i},C^{*}_{i}) $
+- $C_{i}'\leq C_{i}^{*}$ 且 $T_{i}'^{l} \leq T_{i}^{*l}$
+- $(R'_{i}, C'_{i}) \neq (R^{*}_{i},C^{*}_{i})$
 
 Dominance Rule 的意义就是，$X_{p i }'$ extend 出来的 $X_{p j}'$ 必定 dominate 或等于 $X_{p j }^{*}$, 是显然的
 
@@ -72,8 +88,8 @@ During the execution of the modified algorithm, we need only to consider **nondo
 
 设 $X_{p i}+(i,j)$ 是一个 $p\to j$ 的feasible elementary path $X_{pj}$ ，只需证明 $X_{p i}'+(i,j)$ 也是一个 $p\to j$ 的feasible elementary path $X_{pj}'$，且 dominates or is equal to $X_{pj}$
 首先由
-- $C_{i}'\leq C_{i}^{*}$ 且 $ T_{i}'^{l} \leq T_{i}^{*l} $ 且 $ s_{i}'\leq s_{i}^{*} $
-- $ (R'_{i}, C'_{i})\neq (R^{*}_{i},C^{*}_{i}) $
+- $C_{i}'\leq C_{i}^{*}$ 且 $T_{i}'^{l} \leq T_{i}^{*l} $ 且 $ s_{i}'\leq s_{i}^{*}$
+- $(R'_{i}, C'_{i})\neq (R^{*}_{i},C^{*}_{i})$
 知 $X_{pj}'$ 必定可行
 
 易知 $T_{j}'^{l} \leq T_{j}^{l}$, 且 $V_{j}^{'l}=V_{j}^{j}=1$, $C_{j}'\leq C_{j}$, 只需证明 $V_{j}'^{k}\leq V_{j}^k\implies s_{j}^{'}\leq s_{j}$, 只需证明 $X_{p j}'$ reach 不到的 $X_{pj}$ 也 reach 不到，假设 $k$ 是 $X_{pj}'$ 的一个 unreachable node ,有两种情况
