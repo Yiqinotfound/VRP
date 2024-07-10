@@ -1,8 +1,10 @@
-为了科研，需要恶补一些关于VRP的知识!
+恶补VRP的基础知识!
 
 # CVRP
 
 ## Three Index Formulation
+
+[CVPR-3-index代码实现](CVRP\CVPR_threee_index.py)
 
 有向图 $G(V,A)$, depot $0$ 可以用两个点 $o$ 和 $d$ 表示 
 
@@ -101,6 +103,7 @@ $$
 
 ##  MIP Formulation
 
+[VRPTW代码实现](VRPTW\VRPTW_three_index.py)
 
 
 决策变量
