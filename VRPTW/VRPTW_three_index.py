@@ -1,10 +1,15 @@
 # 用three_index模型求解VRPTW问题
 # t_ij = c_ij
 
-from env import *
 from gurobipy import Model, GRB, quicksum
 import matplotlib.pyplot as plt
 import scienceplots
+import sys
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+from env import *
 
 
 class VRPTW:
@@ -193,7 +198,7 @@ class VRPTW:
         plt.ylabel("y")
         plt.title(f"VPRTW With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers")
         plt.legend()
-        plt.savefig(f"CVRP\Figs\VPRTW_3_index With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers.png")
+        plt.savefig(f"VRPTW\Figs\VPRTW_3_index With {self.vehicle_num} Vehicles, {self.vehicle_capacity} Capacity, {self.digraph.customer_num} Customers.png")
         plt.show() 
         
     def print_problem_information(self):
