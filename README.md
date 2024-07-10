@@ -4,8 +4,7 @@
   <img alt="Shows an illustrated sun in light mode and a moon with stars in dark mode." src="https://user-images.githubusercontent.com/25423296/163456779-a8556205-d0a5-45e2-ac17-42d089e3c3f8.png">
 </picture>
 
-来和我一起恶补VRP吧!![图片描述](https://iconfont.alicdn.com/p/illus/preview_image/pMhdd5wW6xfB/6433808a-5ba2-4541-b70b-b8a819afa748.png)
-# CVRP
+来和我一起恶补VRP吧!!
 
 ## Three Index Formulation
 
