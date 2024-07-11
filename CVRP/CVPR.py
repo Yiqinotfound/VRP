@@ -35,8 +35,6 @@ class CVPR:
 
     def violently_solve(self):
 
-
-
         # 创建模型
         m = Model("CVRP_three_index")
 
@@ -148,19 +146,26 @@ class CVPR:
                 self.digraph.nodes[i].index,
                 (self.digraph.nodes[i].x, self.digraph.nodes[i].y),
             )
-        labeld = 0
-        for route in self.routes:
-            if labeld == 0:
-                plt.plot(
-                    [self.digraph.nodes[i].x for i in route],
-                    [self.digraph.nodes[i].y for i in route],
-                    marker="o",
-                    label="route",
+        # 用箭头画出路径
+        cmap = plt.get_cmap("Dark2")  # 使用tab10颜色映射，可选择其他颜色映射
+        for idx, route in enumerate(self.routes):
+            route_color = cmap(idx % cmap.N)  # 使用余数操作确保颜色循环重复
+            for i in range(len(route) - 1):
+                x1, y1 = self.digraph.nodes[route[i]].x, self.digraph.nodes[route[i]].y
+                x2, y2 = (
+                    self.digraph.nodes[route[i + 1]].x,
+                    self.digraph.nodes[route[i + 1]].y,
                 )
-                labeld = 1
-            x = [self.digraph.nodes[i].x for i in route]
-            y = [self.digraph.nodes[i].y for i in route]
-            plt.plot(x, y, marker="o")
+                plt.arrow(
+                    x1,
+                    y1,
+                    x2 - x1,
+                    y2 - y1,
+                    head_width=0.5,
+                    head_length=0.5,
+                    ec=route_color,
+                    fc="black",
+                )
         plt.xlabel("x")
         plt.ylabel("y")
         plt.title(
