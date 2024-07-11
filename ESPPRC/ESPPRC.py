@@ -33,7 +33,7 @@ class ESPPRC:
         self.M = np.zeros((self.digraph.node_num, self.digraph.node_num))
         self.cal_M()
 
-        self.MTZ_routes = None
+        self.MIP_routes = None
         
     
         
@@ -105,7 +105,7 @@ class ESPPRC:
         )
         m.optimize()
         self.objective = m.objVal
-        self.MTZ_routes = self.get_routes_MTZ_model(m)
+        self.MIP_routes = self.get_routes_MTZ_model(m)
         self.m = m
 
     def dp_solve(self):
@@ -153,13 +153,10 @@ class ESPPRC:
 
         def EEF(extended_labels, original_labels):
             total_labels: List[Label] = original_labels + extended_labels
-            # print('original_labels:', [label.cost for label in original_labels])
-            # print('extended_labels:', [label.cost for label in extended_labels])
             if len(total_labels) == 0:
                 return total_labels
             label_to_remove = []
 
-            # 遍历所有label,如果有被支配的，就删除
             for i in range(len(total_labels)):
                 for j in range(len(total_labels)):
                     if i != j:
@@ -345,10 +342,14 @@ def main():
     model = ESPPRC(digraph=digraph, alpha=alpha, vehicle_capacity=VEHICLE_CAPACITY)
 
     start = time.time()
+    model.violently_solve()
+    end = time.time()
+
+    start = time.time()
     model.dp_solve()
     end = time.time()
     print("DP solve time:", end - start)
-    model.plot_solution(model.DP_routes)
+    model.plot_solution(model.MIP_routes)
     
 
 
