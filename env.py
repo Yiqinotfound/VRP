@@ -121,7 +121,7 @@ class DiGraph:
         self.node_num = len(self.nodes)
 
         # 计算邻接矩阵
-        self.cost_matrix = np.zeros((self.node_num, self.node_num))
+        self.adj_matrix = np.zeros((self.node_num, self.node_num))
         self.cal_adj_matrix()
 
         # 给每个节点添加successor_indexes
@@ -139,13 +139,21 @@ class DiGraph:
     def cal_adj_matrix(self):
         for i in range(len(self.nodes)):
             for j in range(len(self.nodes)):
-                self.cost_matrix[i][j] = np.sqrt(
+                self.adj_matrix[i][j] = np.sqrt(
                     (self.nodes[i].x - self.nodes[j].x) ** 2
                     + (self.nodes[i].y - self.nodes[j].y) ** 2
                 )
 
-    def cost(self, i: int, j: int):
-        return self.cost_matrix[i][j]
+    def distance(self, i: int, j: int):
+        return self.adj_matrix[i][j]
+    
+    def time(self,i:int,j:int):
+        # 从i到j的时间暂时等于距离，后续可以加入速度等信息
+        return self.adj_matrix[i][j] 
+    
+    def cost(self,i:int,j:int):
+        # 从i到j的成本暂时等于距离，后续可以加入速度等信息
+        return self.adj_matrix[i][j]
 
 
 def initialize_graph(data_path: str, customer_num: int = 15):

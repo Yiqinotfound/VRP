@@ -1,3 +1,4 @@
+# ESPPRC模型的实现
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -61,7 +62,7 @@ class ESPPRC:
         time = max(
             from_label.time
             + from_node.service_time
-            + self.digraph.cost(from_node.index, to_node.index),
+            + self.digraph.time(from_node.index, to_node.index),
             to_node.ready_time,
         )
         if time > to_node.due:
@@ -123,7 +124,7 @@ class ESPPRC:
 
         ## time window + MTZ约束
         m.addConstrs(
-            T[i] + self.digraph.cost(i, j) + self.digraph.nodes[i].service_time - T[j]
+            T[i] + self.digraph.time(i, j) + self.digraph.nodes[i].service_time - T[j]
             <= (1 - x[i, j]) * self.M[i, j]
             for i in self.I_set
             for j in self.J_set
@@ -156,7 +157,7 @@ class ESPPRC:
                 self.M[i, j] = max(
                     self.digraph.nodes[i].due
                     + self.digraph.nodes[i].service_time
-                    + self.digraph.cost(i, j)
+                    + self.digraph.time(i, j)
                     - self.digraph.nodes[j].ready_time,
                     0,
                 )

@@ -102,7 +102,7 @@ class VRPTW:
         ## time window + MTZ 约束
         m.addConstrs(
             T[i, k]
-            + self.digraph.cost(i, j)
+            + self.digraph.time(i, j)
             + self.digraph.nodes[i].service_time
             - T[j, k]
             <= (1 - x[i, j, k]) * self.M[i, j]
@@ -133,7 +133,7 @@ class VRPTW:
         m.optimize()
         self.objective = m.ObjVal
         self.routes = self.get_routes(m)
-
+        
     # 计算MTZ约束中的M
     def cal_M(self):
         self.M = np.zeros((self.digraph.node_num, self.digraph.node_num))
@@ -142,11 +142,14 @@ class VRPTW:
                 self.M[i, j] = max(
                     self.digraph.nodes[i].due
                     + self.digraph.nodes[i].service_time
-                    + self.digraph.cost(i, j)
+                    + self.digraph.time(i, j)
                     - self.digraph.nodes[j].ready_time,
                     0,
                 )
-
+    
+    def solve(self):
+        pass 
+    
     def get_routes(self, m):
         routes = []
         for k in range(self.vehicle_num):

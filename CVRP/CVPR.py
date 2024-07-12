@@ -128,7 +128,7 @@ class CVPR:
     def cal_route_distance(self, route):
         distance = 0
         for i in range(len(route) - 1):
-            distance += self.digraph.cost(route[i], route[i + 1])
+            distance += self.digraph.distance(route[i], route[i + 1])
         return distance
 
     def plot_solution(self):
