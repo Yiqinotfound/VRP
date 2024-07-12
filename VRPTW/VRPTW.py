@@ -221,6 +221,7 @@ def main():
     model = VRPTW(digraph, vehicle_num=VEHICLE_NUM, vehicle_capacity=VEHICLE_CAPACITY)
     model.violently_solve()
     model.plot_solution()
+    print(model.digraph.nodes[0])
 
 
 if __name__ == "__main__":

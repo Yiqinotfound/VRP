@@ -1,22 +1,31 @@
-import sys
-import time
-import os
-from gurobipy import Model, GRB, quicksum
+import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+from collections import deque
+from gurobipy import GRB, Model, quicksum
+import gurobipy
+import sys
+import os
+import time
 import scienceplots
 
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from env import *
 
 
 class ESPPRC:
-    def __init__(self, digraph: DiGraph, alpha: np.ndarray, vehicle_capacity: float):
+    def __init__(self, digraph: DiGraph, vehicle_capacity: float, duals: List[float]):
         self.digraph = digraph
-        self.alpha = alpha
+        self.nodes: Set[Node] = set(self.digraph.nodes)
         self.vehicle_capacity = vehicle_capacity
-        self.node_num = digraph.node_num
-        self.customer_num = digraph.customer_num
+        self.duals = duals
+        self.depot = self.digraph.depot
+        self.end = self.digraph.end
+        self.customer_num = self.digraph.customer_num
+        self.node_num = self.digraph.node_num
+
         self.o = 0  # depot
         self.d = self.node_num - 1  # end
 
@@ -33,18 +42,49 @@ class ESPPRC:
         self.M = np.zeros((self.digraph.node_num, self.digraph.node_num))
         self.cal_M()
 
-        self.MIP_routes = None
-        
-    
-        
+    def feasible_labels_from(self, from_label: Label):
+        to_labels = []
+        for to_node in self.nodes - from_label.unreachable_nodes - {from_label.node}:
+            to_label = self.extended_label(from_label, to_node)
+            if not to_label:
+                from_label.unreachable_nodes.add(to_node)
+            else:
+                to_labels.append(to_label)
+        return to_labels
+
+    def extended_label(self, from_label: Label, to_node: Node):
+        load = from_label.load + to_node.demand
+        if load > self.vehicle_capacity:
+            return
+
+        from_node = from_label.node
+        time = max(
+            from_label.time
+            + from_node.service_time
+            + self.digraph.cost(from_node.index, to_node.index),
+            to_node.ready_time,
+        )
+        if time > to_node.due:
+            return
+
+        cost = (
+            from_label.cost
+            + self.digraph.cost(from_node.index, to_node.index)
+            - self.duals[from_node.index]
+        )
+        path = from_label.path + [to_node.index]
+        return Label(to_node, path, load, time, cost)
 
     def violently_solve(self):
 
         # 创建模型
         m = Model("ESPPRC")
 
-        # 设置GAP 
+        # 设置GAP
         m.setParam("MIPGap", 0.01)
+        
+        # 不要输出log
+        m.setParam("OutputFlag", 0)
 
         # 创建变量
 
@@ -57,7 +97,7 @@ class ESPPRC:
         # 目标函数
         m.setObjective(
             quicksum(
-                (self.digraph.cost(i, j) - self.alpha[i]) * x[i, j]
+                (self.digraph.cost(i, j) - self.duals[i]) * x[i, j]
                 for i in self.I_set
                 for j in self.J_set
                 if i != j
@@ -88,7 +128,7 @@ class ESPPRC:
             for i in self.I_set
             for j in self.J_set
         )
-        
+
         m
 
         m.addConstrs(T[i] >= self.digraph.nodes[i].ready_time for i in self.V)
@@ -104,132 +144,9 @@ class ESPPRC:
             <= self.vehicle_capacity
         )
         m.optimize()
-        self.objective = m.objVal
-        self.MIP_routes = self.get_routes_MTZ_model(m)
+        self.MIP_objective = m.objVal
+        self.MIP_routes = self.get_routes_MIP_model(m)
         self.m = m
-
-    def dp_solve(self):
-        def expand(label: Label, from_node: Node, to_node: Node):
-            """
-            Function that returns the label resulting from the extension of 'label' to 'node' when the extension is possible, nothing otherwise.
-            """
-            # 更新resource的消耗，检查是否满足
-            # [0]是时间，[1]是容量
-            resource_consumed = [
-                label.resources_consumed[0]
-                + self.digraph.cost(from_node.index, to_node.index),
-                label.resources_consumed[1] + to_node.demand,
-            ]
-            if (
-                resource_consumed[0] <= to_node.due
-                and resource_consumed[1] <= self.vehicle_capacity
-            ):
-                if resource_consumed[0] < to_node.ready_time:
-                    resource_consumed[0] = to_node.ready_time
-                    
-                # 更新unreachable_nodes_vector和unreachable_nodes_num
-                unreachable_nodes_vector = copy.deepcopy(label.unreachable_nodes_vector)
-                unreachable_nodes_vector[to_node.index] = True
-                unreachable_nodes_num = label.unreachable_nodes_num + 1
-                if to_node.index == self.digraph.end.index:
-                    unreachable_nodes_num = self.digraph.node_num
-                    unreachable_nodes_vector = [
-                        True for _ in range(self.digraph.node_num)
-                    ]
-                cost = (
-                    label.cost
-                    + self.digraph.cost(from_node.index, to_node.index)
-                    - self.alpha[from_node.index]
-                )
-                new_label = Label(
-                    path=label.path + [to_node.index],
-                    resources_consumed=resource_consumed,
-                    unreachable_nodes_num=unreachable_nodes_num,
-                    unreachable_nodes_vector=unreachable_nodes_vector,
-                    cost=cost,
-                )
-                return new_label
-            return None
-
-        def EEF(extended_labels, original_labels):
-            total_labels: List[Label] = original_labels + extended_labels
-            if len(total_labels) == 0:
-                return total_labels
-            label_to_remove = []
-
-            for i in range(len(total_labels)):
-                for j in range(len(total_labels)):
-                    if i != j:
-                        if total_labels[i].dominated_by(total_labels[j]) and total_labels[i] not in label_to_remove:
-                            label_to_remove.append(total_labels[i])
-            for label in label_to_remove:
-                total_labels.remove(label)
-
-            return total_labels
-
-        E: List[Node] = []
-        F = [
-            [[] for _ in range(self.digraph.node_num)]
-            for _ in range(self.digraph.node_num)
-        ]
-
-        self.digraph.depot.labels.append(
-            Label(
-                path=[0],
-                resources_consumed=[0, 0],
-                unreachable_nodes_num=1,
-                unreachable_nodes_vector=[True]
-                + [False for _ in range(self.digraph.node_num - 1)],
-                cost=0,
-            )
-        )
-        for node in self.digraph.nodes:
-            if node.index != self.digraph.depot.index:
-                node.labels = []
-        E.append(self.digraph.depot)
-
-        while True > 0:
-            # print('要处理的节点有:', [node.index for node in E])
-            # print('1,2,3节点的labels数量:', [len(node.labels) for node in self.digraph.nodes[1:]])
-            if len(E) == 0:
-                break
-            node = E.pop(0)
-            for successor_index in node.successor_indexes:
-                F:List[Label] = []
-                for label in node.labels:
-                    if label.unreachable_nodes_vector[successor_index] == False:
-                        new_label = expand(
-                            label, node, self.digraph.nodes[successor_index]
-                        )
-                        if new_label is not None:
-                            F.append(new_label)
-                original_labels = copy.deepcopy(
-                    self.digraph.nodes[successor_index].labels
-                )
-                self.digraph.nodes[successor_index].labels = EEF(
-                    F,
-                    self.digraph.nodes[successor_index].labels,
-                )
-                
-
-                # 判断是否有变化
-                if (
-                    original_labels != self.digraph.nodes[successor_index].labels
-                    and successor_index != self.digraph.end.index
-                ):
-                    E.append(self.digraph.nodes[successor_index])
-            # print('处理之后1,2,3节点的labels数量:', [len(node.labels) for node in self.digraph.nodes[1:]])
-            # print('剩下处理节点为:', [node.index for node in E])
-            # print('-----------------------------------')
-
-        print(min([label.cost for label in self.digraph.end.labels]))
-        # 打印出最优路径
-        routes = []
-        for label in self.digraph.end.labels:
-            if label.cost == min([label.cost for label in self.digraph.end.labels]):
-                routes.append(label.path)
-        self.DP_routes = routes 
-            
 
     # 计算MTZ约束中的M
     def cal_M(self):
@@ -243,8 +160,8 @@ class ESPPRC:
                     - self.digraph.nodes[j].ready_time,
                     0,
                 )
-
-    def get_routes_MTZ_model(self, m):
+    
+    def get_routes_MIP_model(self, m):
         route = []
         i = 0
         route.append(i)
@@ -256,7 +173,38 @@ class ESPPRC:
                     route.append(j)
                     i = j
                     break
-        return [route]
+        return route
+
+    def dp_solve(self):
+        for node in self.digraph.nodes:
+            node.labels = []
+        depot_label = Label(self.depot, path=[self.depot.index], load=0, time=0, cost=0)
+        to_be_extended = deque([depot_label])
+        while to_be_extended:
+            from_label = to_be_extended.popleft()
+            if from_label.dominated:
+                continue
+            to_labels: List[Label] = self.feasible_labels_from(from_label)
+            for to_label in to_labels:
+                to_node = to_label.node
+
+                # 到达end节点时，不再扩展
+                if to_node is not self.end:
+                    to_label.unreachable_nodes.update(from_label.unreachable_nodes)
+                    if to_label.is_dominated():
+                        continue
+                    to_label.filter_dominated()
+                    to_be_extended.append(to_label)
+                to_node.labels.append(to_label)
+        self.end.labels.sort(key=lambda x: x.cost)
+        self.dp_path = self.end.labels[0].path
+        self.DP_objective = self.end.labels[0].cost
+
+    def cal_route_cost(self, route: List[int]):
+        cost = 0
+        for i in range(len(route) - 1):
+            cost += self.digraph.cost(route[i], route[i + 1]) - self.duals[route[i]]
+        return cost
 
     def plot_solution(self,routes):
         plt.style.use(["science"])
@@ -301,57 +249,31 @@ class ESPPRC:
         plt.legend()
         plt.show()
 
-    def cal_route_cost(self, route):
-        distance = 0
-        for i in range(len(route) - 1):
-            distance += self.digraph.cost(route[i], route[i + 1]) - self.alpha[route[i]]
-        return distance
-    
-    # 判断route是否可行
-    def route_is_feasible(self,route):
-        current_time = 0 # 从 depot出发时间为0
-        current_load = 0 # 从depot出发load 为 0
-        for i in range(len(route) - 1):
-
-            # 更新current_time
-            current_time += self.digraph.cost(route[i], route[i + 1])
-            
-            # 更新load
-            current_load += self.digraph.nodes[route[i]].demand
-            if current_load > self.vehicle_capacity:
-                return False
-            if current_time > self.digraph.nodes[route[i+1]].due:
-                return False
-            elif current_time < self.digraph.nodes[route[i+1]].ready_time:
-                current_time = self.digraph.nodes[route[i+1]].ready_time
-            
-            # 更新current_time
-            current_time += self.digraph.nodes[route[i]].service_time
-        return True
-
 
 def main():
-    CUSTOMER_NUM = 15
-    VEHICLE_CAPACITY = 200
-    digraph = initialize_graph("dataset/Solomon/R101.txt", CUSTOMER_NUM)
+    VEHICLE_CAPACITY = 100
+    CUSTOMER_NUM = 10
+    digraph = initialize_graph(
+        data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM
+    )
 
-    alpha = np.zeros(digraph.node_num)
-    alpha[:] = 20
-    alpha[0] = 0
-
-    model = ESPPRC(digraph=digraph, alpha=alpha, vehicle_capacity=VEHICLE_CAPACITY)
+    duals = [50 for _ in range(digraph.node_num)]
+    model = ESPPRC(digraph=digraph, vehicle_capacity=VEHICLE_CAPACITY, duals=duals)
 
     start = time.time()
     model.violently_solve()
     end = time.time()
+    print("MIP Path:",model.MIP_routes)
+    print("MIP Cost:",model.MIP_objective)
+    print("MIP Time:",end-start)
 
     start = time.time()
     model.dp_solve()
     end = time.time()
-    print("DP solve time:", end - start)
-    model.plot_solution(model.MIP_routes)
-    
-
+    print("DP Path:",model.dp_path)
+    print("DP Cost",model.DP_objective)
+    print("DP Time:",end-start)
+    model.plot_solution([model.dp_path])
 
 if __name__ == "__main__":
     main()

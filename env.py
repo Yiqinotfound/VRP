@@ -1,6 +1,6 @@
 # 定义一些VRP问题基本的数据类型
 
-from typing import List
+from typing import List, Set
 import numpy as np
 import pandas as pd
 import copy
@@ -29,79 +29,80 @@ class Node:
         self.service_time: float = service_time
         self.labels: List[Label] = []
         self.successor_indexes: List[int] = []
-        
-    def print(self):
-        print("Index:", self.index)
-        print("X:", self.x)
-        print("Y:", self.y)
-        print("Demand:", self.demand)
-        print("Ready time:", self.ready_time)
-        print("Due:", self.due)
-        print("Service time:", self.service_time)
-        print('-----------------------')
-       
+
+    def __eq__(self, other):
+        return self.index == other.index
+
+    def __hash__(self):
+        return hash(self.index)
+    
+    def __repr__(self):
+        return f"Node(index:{self.index}, x:{self.x}, y:{self.y}, demand:{self.demand}, ready time:{self.ready_time}, due time:{self.due}, service time:{self.service_time})"
 
 
 class Label:
     def __init__(
         self,
+        node: Node,
         path: List[int],
-        resources_consumed: List[float],
-        unreachable_nodes_num: int,
-        unreachable_nodes_vector: List[bool],
+        load: float,
+        time: float,
         cost: float,
     ):
+        self.node: Node = node
         self.path: List[int] = path
-        self.resources_consumed: List[float] = resources_consumed
-        self.unreachable_nodes_num: int = unreachable_nodes_num
-        self.unreachable_nodes_vector: List[bool] = unreachable_nodes_vector
-        self.cost = cost
+        self.load: float = load
+        self.time: float = time
+        self.unreachable_nodes: Set[Node] = {self.node}
+        self.cost: float = cost
+        self.dominated = False
 
     def __eq__(self, other):
         if (
-            self.path == other.path
-            and self.resources_consumed == other.resources_consumed
-            and self.unreachable_nodes_num == other.unreachable_nodes_num
-            and self.unreachable_nodes_vector == other.unreachable_nodes_vector
+            self.node == other.node
+            and self.path == other.path
+            and self.load == other.load
+            and self.time == other.time
+            and self.unreachable_nodes == other.unreachable_nodes
             and self.cost == other.cost
         ):
             return True
-        return False
-
-    def dominated_by(self, other):
-        if self.__eq__(other):
-            return True
-        if other.cost > self.cost:
+        else:
             return False
-        for i in range(len(self.resources_consumed)):
-            if other.resources_consumed[i] >= self.resources_consumed[i]:
-                return False
-        if other.unreachable_nodes_num >= self.unreachable_nodes_num:
-            return False
-        for i in range(len(self.unreachable_nodes_vector)):
-            if (
-                other.unreachable_nodes_vector[i] == True
-                and self.unreachable_nodes_vector[i] == False
-            ):
-                return False
-        return True
 
-    def print(self):
-        print("Path:", self.path)
-        print("Resources consumed:", self.resources_consumed)
-        print("Unreachable nodes num:", self.unreachable_nodes_num)
-        print("Unreachable nodes vector:", self.unreachable_nodes_vector)
-        print("Cost:", self.cost)
+    def dominates(self, other):
+        return (
+            self.cost <= other.cost
+            and self.load <= other.load
+            and self.time <= other.time
+            and self.unreachable_nodes.issubset(other.unreachable_nodes)
+        )
 
-    def __eq__(self, other):
-        if (
-            self.resources_consumed == other.resources_consumed
-            and self.unreachable_nodes_num == other.unreachable_nodes_num
-            and self.unreachable_nodes_vector == other.unreachable_nodes_vector
-            and self.cost == other.cost
-        ):
-            return True
+    def is_dominated(self):
+        """Returns True if this label is dominated by any of the labels 
+           associated with the same customer, False otherwise"""
+
+        for label in self.node.labels:
+            if label.dominates(self):
+                return True 
         return False
+    
+    def filter_dominated(self):
+        """Removes labels dominated by this label on its customer.
+        """
+        labels = []
+        for label in self.node.labels:
+            if self.dominates(label):
+                label.dominated = True
+            else:
+                labels.append(label)
+        self.node.labels = labels
+
+    def unreachable_nodes_num(self):
+        return len(self.unreachable_nodes)
+
+    def __repr__(self):
+        return f"Label(customer:{self.node.index}, cost:{self.cost}, load:{self.load}, time:{self.time})"
 
 
 class Route:

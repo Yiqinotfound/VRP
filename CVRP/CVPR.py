@@ -188,7 +188,7 @@ class CVPR:
 def main():
     CUSTOMER_NUM = 10
     VEHICLE_NUM = 4
-    VEHICLE_CAPACITY = 100
+    VEHICLE_CAPACITY = 50
     digraph = initialize_graph(
         data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM
     )
