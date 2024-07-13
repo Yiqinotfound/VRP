@@ -253,7 +253,7 @@ class ESPPRC:
 
 def main():
     VEHICLE_CAPACITY = 100
-    CUSTOMER_NUM = 10
+    CUSTOMER_NUM = 50
     digraph = initialize_graph(
         data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM
     )
