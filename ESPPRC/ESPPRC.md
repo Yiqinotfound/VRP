@@ -1,19 +1,3 @@
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    tex2jax: {
-      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
-      processEscapes: true
-    }
-  });
-</script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    tex2jax: {
-      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
-      processEscapes: true
-    }
-  });
-</script>
 # ESPPRC
 
 找到 $p\to d$ 的最小 cost 路径，且每个节点只能访问一遍 
@@ -45,11 +29,11 @@ $$
 
 **Dominance Rule**:
 
-$X_{pi}'$ 和 $X_{p i }^{*}$ 是两个不同的 path, 满足以下两个条件 $X_{p i}'$ dominates $X_{pi}^{*}$
-- $C_{i}'\leq C_{i}^{*}$ 且 $T_{i}'^{l} \leq T_{i}^{*l}$
-- $(R'_{i}, C'_{i}) \neq (R^{*}_{i},C^{*}_{i})$
+$X_{pi}'$ 和 $X_{pi}^{\ast}$ 是两个不同的 path, 满足以下两个条件 $X_{pi}'$ dominates $X_{pi}^{\ast}$
+- $C_{i}'\leq C_{i}^{*}$ 且 $T_{i}'^{l} \leq T_{i}^{\ast l}$
+- $(R'_{i}, C'_{i}) \neq (R^{\ast}_{i},C^{\ast}_{i})$
 
-Dominance Rule 的意义就是，$X_{p i }'$ extend 出来的 $X_{p j}'$ 必定 dominate 或等于 $X_{p j }^{*}$, 是显然的
+Dominance Rule 的意义就是，$X_{pi}'$ extend 出来的 $X_{pj}'$ 必定 dominate 或等于 $X_{pj }^{\ast}$, 是显然的
 
 
 
@@ -70,10 +54,10 @@ A node $v_{k}$ is said to be unreachable if it is included in $X_{p i}$ or if th
 $R_{i}=(T_{i}^{l},\dots,T_{i}^{L},s_{i},V_{i}^{1},\dots,V_{i}^{n})$ ,对应资源的消耗量，unreachable nodes 数量，unreachable node 向量
 
 **Dominance Rule**
-$X_{pi}'$ 和 $X_{p i }^{*}$ 是两个不同的 path, 满足以下两个条件 $X_{p i}'$ dominates $X_{pi}^{*}$
-- $C_{i}'\leq C_{i}^{*}$ 且 $T_{i}'^{l} \leq T_{i}^{*l}$ 且 $s_{i}'\leq s_{i}^{*}$
-- $(R'_{i}, C'_{i})\neq (R^{*}_{i},C^{*}_{i})$
-- $V_{i}'^{k}\leq V_{i}^{*k}$
+$X_{pi}'$ 和 $X_{p i }^{\ast}$ 是两个不同的 path, 满足以下两个条件 $X_{p i}'$ dominates $X_{pi}^{\ast}$
+- $C_{i}'\leq C_{i}^{\ast}$ 且 $T_{i}'^{l} \leq T_{i}^{\ast l}$ 且 $s_{i}'\leq s_{i}^{\ast}$
+- $(R'_{i}, C'_{i})\neq (R^{\ast}_{i},C^{\ast}_{i})$
+- $V_{i}'^{k}\leq V_{i}^{\ast k}$
 
 >**All nondominated paths are the extension of a nondominated path**
 
@@ -88,8 +72,8 @@ During the execution of the modified algorithm, we need only to consider **nondo
 
 设 $X_{p i}+(i,j)$ 是一个 $p\to j$ 的feasible elementary path $X_{pj}$ ，只需证明 $X_{p i}'+(i,j)$ 也是一个 $p\to j$ 的feasible elementary path $X_{pj}'$，且 dominates or is equal to $X_{pj}$
 首先由
-- $C_{i}'\leq C_{i}^{*}$ 且 $T_{i}'^{l} \leq T_{i}^{*l} $ 且 $ s_{i}'\leq s_{i}^{*}$
-- $(R'_{i}, C'_{i})\neq (R^{*}_{i},C^{*}_{i})$
+- $C_{i}'\leq C_{i}^{\ast}$ 且 $T_{i}'^{l} \leq T_{i}^{\ast l} $ 且 $ s_{i}'\leq s_{i}^{\ast}$
+- $(R'_{i}, C'_{i})\neq (R^{*}_{i},C^{\ast}_{i})$
 知 $X_{pj}'$ 必定可行
 
 易知 $T_{j}'^{l} \leq T_{j}^{l}$, 且 $V_{j}^{'l}=V_{j}^{j}=1$, $C_{j}'\leq C_{j}$, 只需证明 $V_{j}'^{k}\leq V_{j}^k\implies s_{j}^{'}\leq s_{j}$, 只需证明 $X_{p j}'$ reach 不到的 $X_{pj}$ 也 reach 不到，假设 $k$ 是 $X_{pj}'$ 的一个 unreachable node ,有两种情况
