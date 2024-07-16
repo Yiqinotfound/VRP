@@ -73,8 +73,8 @@ During the execution of the modified algorithm, we need only to consider **nondo
 设 $X_{p i}+(i,j)$ 是一个 $p\to j$ 的feasible elementary path $X_{pj}$ ，只需证明 $X_{p i}'+(i,j)$ 也是一个 $p\to j$ 的feasible elementary path $X_{pj}'$，且 dominates or is equal to $X_{pj}$
 首先由
 - $C_{i}'\leq C_{i}^{\ast}$ 且 $T_{i}'^{l} \leq T_{i}^{\ast l} $ 且 $ s_{i}'\leq s_{i}^{\ast}$
-- $(R'_{i}, C'_{i})\neq (R^{*}_{i},C^{\ast}_{i})$
-知 $X_{pj}'$ 必定可行
+- $(R ^{\prime}_{i},C^{\prime}_{i})\neq (R^{*}_{i},C^{\ast}_{i})$
+知 $X_{pj}^{\prime}$ 必定可行
 
 易知 $T_{j}'^{l} \leq T_{j}^{l}$, 且 $V_{j}^{'l}=V_{j}^{j}=1$, $C_{j}'\leq C_{j}$, 只需证明 $V_{j}'^{k}\leq V_{j}^k\implies s_{j}^{'}\leq s_{j}$, 只需证明 $X_{p j}'$ reach 不到的 $X_{pj}$ 也 reach 不到，假设 $k$ 是 $X_{pj}'$ 的一个 unreachable node ,有两种情况
 1. $k$ is included in $X_{pj}'$  因为 $V_{i}'^{k}=1\implies V_{j}^{k}\geq V_{i}^{k} \geq V_{i}'^{k}=1$
