@@ -10,6 +10,7 @@ import os
 import time
 import scienceplots
 
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
@@ -17,7 +18,15 @@ from env import *
 
 
 class ESPPRC:
-    def __init__(self, digraph: DiGraph, vehicle_capacity: float, duals: List[float]):
+    def __init__(
+        self,
+        digraph: DiGraph,
+        vehicle_capacity: float,
+        duals: List[float],
+        forbidden_arcs: List[Tuple[int, int]] = None,
+        retained_arcs: List[Tuple[int, int]] = None,
+        forbidden_routes: List[Route] = None,
+    ):
         self.digraph = digraph
         self.nodes: Set[Node] = set(self.digraph.nodes)
         self.vehicle_capacity = vehicle_capacity
@@ -43,6 +52,17 @@ class ESPPRC:
         self.M = np.zeros((self.digraph.node_num, self.digraph.node_num))
         self.cal_M()
 
+        self.retained_arcs = retained_arcs
+        if self.retained_arcs is None:
+            self.retained_arcs = []
+        self.forbidden_arcs = forbidden_arcs
+        if self.forbidden_arcs is None:
+            self.forbidden_arcs = []
+            
+        self.forbidden_routes:List[Route] = forbidden_routes
+        if self.forbidden_routes is None:
+            self.forbidden_routes = []
+        
     def feasible_labels_from(self, from_label: Label):
         to_labels = []
         for to_node in self.nodes - from_label.unreachable_nodes - {from_label.node}:
@@ -54,6 +74,7 @@ class ESPPRC:
         return to_labels
 
     def extended_label(self, from_label: Label, to_node: Node):
+
         load = from_label.load + to_node.demand
         if load > self.vehicle_capacity:
             return
@@ -83,7 +104,7 @@ class ESPPRC:
 
         # 设置GAP
         m.setParam("MIPGap", 0.01)
-        
+
         # 不要输出log
         m.setParam("OutputFlag", 0)
 
@@ -130,7 +151,7 @@ class ESPPRC:
             for j in self.J_set
         )
 
-        m
+        ## ready time约束
 
         m.addConstrs(T[i] >= self.digraph.nodes[i].ready_time for i in self.V)
         m.addConstrs(T[i] <= self.digraph.nodes[i].due for i in self.V)
@@ -144,9 +165,22 @@ class ESPPRC:
             )
             <= self.vehicle_capacity
         )
+
+        ## 禁忌弧约束
+        m.addConstrs(x[arc[0], arc[1]] == 0 for arc in self.forbidden_arcs)
+
+        ## 保留弧约束
+        for arc in self.retained_arcs:
+            m.addConstrs(
+                x[arc[0], j] == 0 for j in self.J_set if j != arc[1] and j != arc[0]
+            )
+            m.addConstrs(
+                x[i, arc[1]] == 0 for i in self.I_set if i != arc[0] and i != arc[1]
+            )
+
         m.optimize()
-        self.MIP_objective = m.objVal
-        self.MIP_routes = self.get_routes_MIP_model(m)
+        self.mip_objective = m.objVal
+        self.mip_paths = self.get_routes_MIP_model(m)
         self.m = m
 
     # 计算MTZ约束中的M
@@ -161,7 +195,7 @@ class ESPPRC:
                     - self.digraph.nodes[j].ready_time,
                     0,
                 )
-    
+
     def get_routes_MIP_model(self, m):
         route = []
         i = 0
@@ -198,8 +232,28 @@ class ESPPRC:
                     to_be_extended.append(to_label)
                 to_node.labels.append(to_label)
         self.end.labels.sort(key=lambda x: x.cost)
-        self.dp_path = self.end.labels[0].path
-        self.DP_objective = self.end.labels[0].cost
+        for label in self.end.labels:
+            if self.check_path(label.path):
+                self.dp_path = label.path
+                self.dp_objective = label.cost
+                break
+
+    def check_path(self, path: List[int]):
+        for route in self.forbidden_routes:
+            if path == route.path:
+                return False
+        for i in range(len(path) - 1):
+            path_arc = (path[i], path[i + 1])
+            if path_arc in self.forbidden_arcs:
+                return False
+            for retained_arc in self.retained_arcs:
+                if (
+                    path_arc[0] == retained_arc[0] and path_arc[1] != retained_arc[1]
+                ) or (
+                    path_arc[0] != retained_arc[0] and path_arc[1] == retained_arc[1]
+                ):
+                    return False
+        return True
 
     def cal_route_cost(self, route: List[int]):
         cost = 0
@@ -207,7 +261,7 @@ class ESPPRC:
             cost += self.digraph.cost(route[i], route[i + 1]) - self.duals[route[i]]
         return cost
 
-    def plot_solution(self,routes):
+    def plot_solution(self, routes):
         plt.style.use(["science"])
         plt.figure(figsize=(10, 10))
         plt.scatter(
@@ -252,29 +306,36 @@ class ESPPRC:
 
 
 def main():
-    VEHICLE_CAPACITY = 100
-    CUSTOMER_NUM = 50
+    VEHICLE_CAPACITY = 200
+    CUSTOMER_NUM = 100
     digraph = initialize_graph(
         data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM
     )
 
     duals = [50 for _ in range(digraph.node_num)]
-    model = ESPPRC(digraph=digraph, vehicle_capacity=VEHICLE_CAPACITY, duals=duals)
+    model = ESPPRC(
+        digraph=digraph,
+        vehicle_capacity=VEHICLE_CAPACITY,
+        duals=duals,
+        forbidden_arcs=[(0, 27)],
+        retained_arcs=[(26, 4)],
+    )
 
     start = time.time()
     model.violently_solve()
     end = time.time()
-    print("MIP Path:",model.MIP_routes)
-    print("MIP Cost:",model.MIP_objective)
-    print("MIP Time:",end-start)
+    print("MIP Path:", model.mip_paths)
+    print("MIP Cost:", model.mip_objective)
+    print("MIP Time:", end - start)
 
     start = time.time()
     model.dp_solve()
     end = time.time()
-    print("DP Path:",model.dp_path)
-    print("DP Cost",model.DP_objective)
-    print("DP Time:",end-start)
-    model.plot_solution([model.dp_path])
+    print("DP Path:", model.dp_path)
+    print("DP Cost", model.dp_objective)
+    print("DP Time:", end - start)
+    model.plot_solution([model.mip_paths])
+
 
 if __name__ == "__main__":
     main()

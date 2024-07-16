@@ -1,9 +1,10 @@
 # 定义一些VRP问题基本的数据类型
-
-from typing import List, Set
+from __future__ import annotations
+from typing import List, Set, Tuple
 import numpy as np
 import pandas as pd
 import copy
+from gurobipy import Model, GRB, quicksum
 
 
 class Node:
@@ -106,9 +107,12 @@ class Label:
 
 
 class Route:
-    def __init__(self, nodes: List[Node], cost):
-        self.nodes = nodes
+    def __init__(self, path: List[Node],arc_matrix:np.ndarray,cost:float):
+        self.path = path
+        self.arc_matrix = arc_matrix
         self.cost = cost
+    def __repr__(self):
+        return f"Route(path:{self.path}, cost:{self.cost})"
 
 
 class DiGraph:
@@ -183,3 +187,11 @@ def initialize_graph(data_path: str, customer_num: int = 15):
         )
 
     return DiGraph(customer_nodes, depot)
+
+
+def cal_routes_visits_vector(total_node_num, routes:List[Route]):
+    visits_vector = np.zeros((total_node_num,len(routes)))
+    for i,route in enumerate(routes):
+        for node_index in route.path:
+            visits_vector[node_index,i] = 1
+    return visits_vector

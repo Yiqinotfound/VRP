@@ -1,16 +1,17 @@
 # 用three_index模型求解VRPTW问题
 # t_ij = c_ij
-
-from gurobipy import Model, GRB, quicksum
-import matplotlib.pyplot as plt
-import scienceplots
 import sys
 import os
-
+import time
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
+from gurobipy import Model, GRB, quicksum
+import matplotlib.pyplot as plt
+import scienceplots
+from ESPPRC.ESPPRC import ESPPRC
 from env import *
+import copy
 
 
 class VRPTW:
@@ -21,11 +22,11 @@ class VRPTW:
         self.vehicle_num = vehicle_num
         self.vehicle_capacity = vehicle_capacity
         self.print_problem_information()
-        self.depot = self.digraph.depot 
-        self.end = self.digraph.end 
+        self.depot = self.digraph.depot
+        self.end = self.digraph.end
         self.node_num = self.digraph.node_num
         self.nodes = self.digraph.nodes
-        
+
         self.o = 0  # depot
         self.d = self.digraph.node_num - 1  # end
 
@@ -45,7 +46,7 @@ class VRPTW:
         self.M = np.zeros((self.digraph.node_num, self.digraph.node_num))
         self.cal_M()
 
-        self.MIP_routes = None
+        self.mip_paths = None
 
     def violently_solve(self):
 
@@ -53,12 +54,14 @@ class VRPTW:
         MIP_model = Model("VRPTW_three_index")
 
         # 设置Gap
-        MIP_model.setParam("MIPGAP", 0.05)
+        MIP_model.setParam("MIPGAP", 0.01)
 
         # 创建变量
 
         ## x_ijk,车 k 是否经过 (i,j) \in A
-        x = MIP_model.addVars(self.I_set, self.J_set, self.K, vtype=GRB.BINARY, name="x")
+        x = MIP_model.addVars(
+            self.I_set, self.J_set, self.K, vtype=GRB.BINARY, name="x"
+        )
 
         ## T_ik, 车 k 到达 i \in V 的时间
         T = MIP_model.addVars(self.V, self.K, vtype=GRB.CONTINUOUS, name="T")
@@ -135,100 +138,94 @@ class VRPTW:
 
         # 求解
         MIP_model.optimize()
-        self.objective = MIP_model.ObjVal
-        self.MIP_routes = self.get_routes(MIP_model)
-    
+        self.mip_objective = MIP_model.ObjVal
+        self.mip_paths = self.get_paths(MIP_model)
+
     def column_generation_solve(self):
-        
-        # 模型里的a_ir
-        initial_routes = self.get_initial_routes()
-        self.routes_vector = self.convert_routes_to_vectors(initial_routes)
-        self.route_costs = np.array([self.cal_route_cost(route) for route in initial_routes])
-        self.routes_num = len(initial_routes)
-        
-        
-        
-        # 创建模型
-        m = Model("VRPTW_column_generation")
-        
-        # 设置Gap
-        m.setParam("MIPGAP", 0.05)
-        
-        # 创建变量
-        
-        ## y_r = 1, if route r is selected
-        y = m.addVars(self.routes_num, vtype=GRB.CONTINUOUS, name="y")
-        
-        # 目标函数
-        m.setObjective(quicksum(self.route_costs[r] * y[r] for r in range(self.routes_num)),GRB.MINIMIZE)
-        
-        # 设置约束
-        
-        ## 每个节点只被访问一次
-        visit_constrs = m.addConstrs(quicksum(self.routes_vector[i,r] * y[r] for r in range(self.routes_num)) == 1 for i in self.N)
 
-        ## 选择的routes数小于等于车辆数
-        m.addConstr(quicksum(y[r] for r in range(self.routes_num)) <= self.vehicle_num)
-        
-        # 求解
-        m.optimize()
+        # 获取初始routes
+        initial_paths = self.get_naive_paths() + self.get_greedy_paths()
 
-        
+        route_costs = np.array([self.cal_path_cost(path) for path in initial_paths])
+        arc_matrixes = [self.get_arc_matrix_from_path(path) for path in initial_paths]
+        routes = [
+            Route(initial_paths[i], arc_matrixes[i], route_costs[i])
+            for i in range(len(initial_paths))
+        ]
+        self.initial_solution_node = SolutionNode(
+            digraph=self.digraph,
+            vehicle_capcacity=self.vehicle_capacity,
+            vehicle_num=self.vehicle_num,
+            routes=routes,
+        )
+        self.initial_solution_node.solve()
 
-        # 第一个约束的对偶变量，就是每个节点的价格，令depot节点的价格为0
-        duals = np.array([visit_constrs[i].Pi for i in self.N])
-        duals = np.insert(duals, 0, 0)
-        
-        for r in range(self.routes_num):
-            print(y[r].x)
-        
-    
-    # 用贪心法获取初始routes    
-    def get_initial_routes(self):
-        routes = []
+
+            
+
+    # 用贪心法获取初始paths
+    def get_greedy_paths(self):
+        paths = []
         unserved_customer = self.digraph.nodes[1:-1]
         while unserved_customer:
             current_time = 0
             current_load = 0
-            current_node = self.depot 
+            current_node = self.depot
             route = [current_node.index]
             while True:
                 unserved_customer.sort(key=lambda x: x.ready_time)
                 to_customer = None
                 for customer in unserved_customer:
-                    time = max(current_time + self.digraph.time(current_node.index, customer.index)+current_node.service_time, customer.ready_time)
+                    time = max(
+                        current_time
+                        + self.digraph.time(current_node.index, customer.index)
+                        + current_node.service_time,
+                        customer.ready_time,
+                    )
                     load = current_load + customer.demand
                     if time <= customer.due and load <= self.vehicle_capacity:
-                        current_time = time 
+                        current_time = time
                         current_load = load
                         to_customer = customer
                         break
                 if to_customer is None:
                     route.append(self.end.index)
-                    break 
+                    break
                 current_node = to_customer
                 route.append(to_customer.index)
                 unserved_customer.remove(to_customer)
-            routes.append(route)
-        return routes 
-    
-    
-     
-     # 判断路径是否可行
-    def route_is_feasible(self,route:List[int]):
-        current_time = 0 
-        current_load = 0 
+            paths.append(route)
+        return paths
+
+    def get_naive_paths(self):
+        paths = []
+        for i in range(1, self.digraph.node_num - 1):
+            paths.append([0, i, self.digraph.node_num - 1])
+        return paths
+
+    # 判断path是否可行
+    def path_is_feasible(self, route: List[int]):
+        current_time = 0
+        current_load = 0
         for i in range(len(route) - 1):
-            current_time = max(current_time + self.digraph.time(route[i],route[i+1]) + self.digraph.nodes[route[i]].service_time, self.digraph.nodes[route[i+1]].ready_time)
+            current_time = max(
+                current_time
+                + self.digraph.time(route[i], route[i + 1])
+                + self.digraph.nodes[route[i]].service_time,
+                self.digraph.nodes[route[i + 1]].ready_time,
+            )
             current_load += self.digraph.nodes[route[i]].demand
-            if current_time > self.digraph.nodes[route[i+1]].due or current_load > self.vehicle_capacity:
-                if current_time > self.digraph.nodes[route[i+1]].due:
+            if (
+                current_time > self.digraph.nodes[route[i + 1]].due
+                or current_load > self.vehicle_capacity
+            ):
+                if current_time > self.digraph.nodes[route[i + 1]].due:
                     print(f"节点{route[i+1]}超时")
                 if current_load > self.vehicle_capacity:
                     print(f"节点{route[i+1]}超载")
                 return False
         return True
-    
+
     # 计算MTZ约束中的M
     def cal_M(self):
         self.M = np.zeros((self.digraph.node_num, self.digraph.node_num))
@@ -241,9 +238,8 @@ class VRPTW:
                     - self.digraph.nodes[j].ready_time,
                     0,
                 )
-    
-    
-    def get_routes(self, m):
+
+    def get_paths(self, m):
         routes = []
         for k in range(self.vehicle_num):
             route = []
@@ -259,24 +255,23 @@ class VRPTW:
                         break
             routes.append(route)
         return routes
-    
-    def cal_route_cost(self,route):
+
+    def cal_path_cost(self, path):
         cost = 0
-        for i in range(len(route) - 1):
-            cost += self.digraph.cost(route[i],route[i+1])
+        for i in range(len(path) - 1):
+            cost += self.digraph.cost(path[i], path[i + 1])
         return cost
-    
-    def convert_routes_to_vectors(self,routes):
-        vectors = np.zeros((self.node_num,len(routes)))
-        for i,route in enumerate(routes):
-            for j in route:
-                vectors[j,i] = 1
-        return vectors
+
+    def get_arc_matrix_from_path(self, path):
+        arc_matrix = np.zeros((self.node_num, self.node_num))
+        for i in range(len(path) - 1):
+            arc_matrix[path[i]][path[i + 1]] = 1
+        return arc_matrix
 
     def plot_solution(self):
-        self.plot_routes(self.MIP_routes)
-        
-    def plot_routes(self,routes):
+        self.plot_paths(self.mip_paths)
+
+    def plot_paths(self, routes):
         plt.style.use(["science"])
         plt.figure(figsize=(10, 10))
         plt.scatter(
@@ -293,16 +288,25 @@ class VRPTW:
                 (self.digraph.nodes[i].x, self.digraph.nodes[i].y),
             )
         # 用箭头画出路径
-        cmap = plt.get_cmap("Dark2")  # 使用tab10颜色映射，可选择其他颜色映射
-        for idx,route in enumerate(routes):
-            route_color = cmap(idx % cmap.N)  # 使用余数操作确保颜色循环重复
+        cmap = plt.get_cmap("Dark2")
+        for idx, route in enumerate(routes):
+            route_color = cmap(idx % cmap.N)
             for i in range(len(route) - 1):
                 x1, y1 = self.digraph.nodes[route[i]].x, self.digraph.nodes[route[i]].y
                 x2, y2 = (
                     self.digraph.nodes[route[i + 1]].x,
                     self.digraph.nodes[route[i + 1]].y,
                 )
-                plt.arrow(x1, y1, x2 - x1, y2 - y1, head_width=0.5, head_length=0.5,ec=route_color,fc='black')
+                plt.arrow(
+                    x1,
+                    y1,
+                    x2 - x1,
+                    y2 - y1,
+                    head_width=0.5,
+                    head_length=0.5,
+                    ec=route_color,
+                    fc="black",
+                )
 
         plt.xlabel("x")
         plt.ylabel("y")
@@ -311,7 +315,6 @@ class VRPTW:
         )
         plt.legend()
         plt.show()
-        
 
     def print_problem_information(self):
         print("-" * 20, "Problem Information", "-" * 20)
@@ -321,19 +324,280 @@ class VRPTW:
         print(f"车容量: {self.vehicle_capacity}")
 
 
+class SolutionNode:
+    _id_counter = 0
+
+    def __init__(
+        self,
+        digraph: DiGraph,
+        vehicle_num: int,
+        vehicle_capcacity: float,
+        routes: List[Route],
+        forbidden_arcs: List[tuple] = None,
+        retained_arcs: List[tuple] = None,
+    ):
+
+        self.digraph = digraph
+        self.node_num = self.digraph.node_num
+
+        # 禁止的arc [(i,j),...]
+        self.forbidden_arcs: List[Tuple] = forbidden_arcs
+        if self.forbidden_arcs is None:
+            self.forbidden_arcs = []
+
+        # 保留的arc [(i,j),...]
+        self.retained_arcs: List[tuple] = retained_arcs
+        if self.retained_arcs is None:
+            self.retained_arcs = []
+
+        # 路径列表，已经除去了分支要求的路径
+        self.routes: List[Route] = routes
+
+        # 车辆数和容量
+        self.vehicle_num = vehicle_num
+        self.vehicle_capacity = vehicle_capcacity
+
+        self.V = list(range(self.node_num))
+        self.N = self.V[1:-1]
+
+        self.generated = 0
+
+        # 是否求解RMP达到了最优解
+        self.optimal = False
+
+        # 最优解
+        self.objective = None
+
+        # RMP是否可行
+        self.feasible = True
+
+        # 流量矩阵flow_matrix[i,j]表示(i,j)的流
+        self.flow_matrix = np.zeros((self.node_num, self.node_num))
+
+        self.solution_routes = None
+
+        self.forbid_arc_node = None 
+        self.retain_arc_node = None
+
+        self.id = SolutionNode._id_counter
+        SolutionNode._id_counter += 1
+        print('创建节点',self.id)
+        
+        
+
+    def solve(self):
+
+        # a_ir = 1 if route r contains node i
+        self.visits_vector = cal_routes_visits_vector(self.node_num, self.routes)
+
+        # 构建Master Problem
+        self.generate_MP()
+        self.master_problem.optimize()
+
+        # 判断是否可行
+        if self.master_problem.Status != GRB.OPTIMAL:
+            self.feasible = False
+            return
+        print(self.id,'节点RMP求解成功',self.master_problem.objVal)
+        self.y = self.master_problem.getAttr("x", self.master_problem.getVars())
+
+
+        # visit_constraints的对偶变量
+        self.duals = self.master_problem.getAttr("pi", self.visit_constraints)
+        self.duals = [self.duals[i] for i in self.N]
+        self.duals.insert(0, 0)
+
+        # 构建SubProblem
+        self.generate_SP()
+        self.sub_problem.dp_solve()
+
+        # 最小的reduced cost
+        min_rc = self.sub_problem.dp_objective
+        if min_rc >= 0:  # reduced_cost >= 0
+
+            # y如果都是整数，说明已经是最优解
+            if all(y == 0 or y == 1 for y in self.y):
+                self.optimal = True
+                self.objective = self.master_problem.objVal
+                self.solution_routes = [self.routes[i] for i in range(self.route_num()) if self.y[i] == 1]
+                return
+
+
+            # 计算流量矩阵
+            self.flow_matrix = sum(
+                self.y[i] * self.routes[i].arc_matrix for i in range(self.route_num())
+            )
+
+            # 找到一个非0-1流量的arc
+            arc = self.get_fractional_arc(self.flow_matrix)
+
+            new_forbidden_arcs = self.forbidden_arcs.copy()
+            new_forbidden_arcs.append(arc)
+            new_retained_arcs = self.retained_arcs.copy()
+            new_retained_arcs.append(arc)
+
+            self.forbid_arc_node = SolutionNode(
+                digraph=self.digraph,
+                vehicle_num=self.vehicle_num,
+                vehicle_capcacity=self.vehicle_capacity,
+                routes=self.filter_routes(routes=self.routes, forbidden_arc=arc),
+                forbidden_arcs=new_forbidden_arcs,
+                retained_arcs=self.retained_arcs,
+            )
+            self.retain_arc_node = SolutionNode(
+                digraph=self.digraph,
+                vehicle_num=self.vehicle_num,
+                vehicle_capcacity=self.vehicle_capacity,
+                routes=self.filter_routes(routes=self.routes, retained_arc=arc),
+                forbidden_arcs=self.forbidden_arcs,
+                retained_arcs=new_retained_arcs,
+            )
+            self.forbid_arc_node.solve()
+            self.retain_arc_node.solve()
+
+            self.retain_objective = (
+                self.retain_arc_node.objective
+                if self.retain_arc_node.objective is not None
+                else float("inf")
+            )
+            self.forbid_objective = (
+                self.forbid_arc_node.objective
+                if self.forbid_arc_node.objective is not None
+                else float("inf")
+            )
+
+            self.objective = min(self.retain_objective, self.forbid_objective)
+        else:
+            new_path = self.sub_problem.dp_path
+            new_path_cost = self.cal_path_cost(new_path)
+            new_path_arc_matrix = self.get_arc_matrix_from_path(new_path)
+            new_route = Route(new_path, new_path_arc_matrix, new_path_cost)
+            self.routes.append(new_route)
+            print('节点',self.id,'增加了',new_path,'现在有',len(self.routes),'条路径')
+            self.generated += 1
+            self.solve()
+
+    # 根据routes、forbidden_arcs、retained_arcs生成MP
+    def generate_MP(self):
+
+        # 创建模型
+        self.master_problem = Model("MP")
+        self.master_problem.setParam("OutputFlag", 0)
+
+        # 创建变量
+        y = self.master_problem.addVars(
+            self.route_num(), vtype=GRB.CONTINUOUS, name="y"
+        )
+
+        # 目标函数
+        self.master_problem.setObjective(
+            quicksum(self.routes[r].cost * y[r] for r in range(self.route_num())),
+            GRB.MINIMIZE,
+        )
+
+        # 访问约束
+        self.visit_constraints = self.master_problem.addConstrs(
+            quicksum(self.visits_vector[i, r] * y[r] for r in range(len(self.routes)))
+            >= 1
+            for i in self.N
+        )
+        
+                    
+
+    def generate_SP(self):
+        self.sub_problem = ESPPRC(
+            self.digraph,
+            self.vehicle_capacity,
+            self.duals,
+            self.forbidden_arcs,
+            self.retained_arcs,
+            self.routes,
+        )
+
+    def cal_path_cost(self, path):
+        cost = 0
+        for i in range(len(path) - 1):
+            cost += self.digraph.cost(path[i], path[i + 1])
+        return cost
+
+    def get_arc_matrix_from_path(self, path):
+        arc_matrix = np.zeros((self.node_num, self.node_num))
+        for i in range(len(path) - 1):
+            arc_matrix[path[i]][path[i + 1]] = 1
+        return arc_matrix
+
+    def route_num(self):
+        return len(self.routes)
+
+    def get_fractional_arc(self, flow_matrix: np.ndarray):
+        self.fractional_arcs:List[Tuple] = []
+        arc = None
+        for i in range(1,len(flow_matrix)):
+            for j in range(len(flow_matrix)-1):
+                if flow_matrix[i, j] != 0 and self.flow_matrix[i, j] != 1:
+                    arc = (i, j)
+                    break
+            if arc is not None:
+                break
+        return arc
+
+    def filter_routes(
+        self,
+        routes: List[Route],
+        forbidden_arc: Tuple = None,
+        retained_arc: Tuple = None,
+    ):
+        new_routes: List[Route] = []
+        for route in routes:
+            flag = True
+            for i in range(len(route.path) - 1):
+                arc = (route.path[i], route.path[i + 1])
+                if forbidden_arc is not None and arc == forbidden_arc:
+                    flag = False
+                    break
+                if retained_arc is not None:
+                    if retained_arc[0] != 0:
+                        if (
+                            arc[0] == retained_arc[0] and arc[1] != retained_arc[1]
+                        ) or (arc[1] == retained_arc[1] and arc[0] != retained_arc[0]):
+                            flag = False
+                            break
+                    else:
+                        if arc[1] == retained_arc[1] and arc[0] != 0:
+                            flag = False
+                            break
+            if flag:
+                new_routes.append(route)
+        return new_routes
+
+    def print_routes(self):
+        print("共有", self.route_num(), "条路径")
+        for route in self.routes:
+            print(route)
+
+
 def main():
-    CUSTOMER_NUM = 10
-    VEHICLE_NUM = 6
+    CUSTOMER_NUM = 100
+    VEHICLE_NUM = 100
     VEHICLE_CAPACITY = 200
     digraph = initialize_graph(
         data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM
     )
-    model = VRPTW(digraph, vehicle_num=VEHICLE_NUM, vehicle_capacity=VEHICLE_CAPACITY)
-    model.violently_solve()
-    model.plot_routes(model.get_initial_routes())
-    print(model.get_initial_routes())
+    model = VRPTW(
+        digraph=digraph, vehicle_num=VEHICLE_NUM, vehicle_capacity=VEHICLE_CAPACITY
+    )
+    # start = time.time()
+    # model.violently_solve()
+    # end = time.time()
+    # print("MIP求解时间:", end - start)
+
+    start = time.time()
     model.column_generation_solve()
+    end = time.time()
+    print("CG求解时间:", end - start)
     
+    print(model.initial_solution_node.objective)
+
 
 if __name__ == "__main__":
     main()
