@@ -172,6 +172,7 @@ $$
 ### 主问题和列生成
 
 使用 **Set covering Model**, 它的松弛可以得到**更好的下界** 
+
 $$
 \begin{aligned}
 	\min & \quad \sum_{r \in \Omega}c_{r}y_{r}\\
@@ -180,6 +181,7 @@ $$
 	 & \quad y_{r}  \in \mathbb{N}  & \forall   r \in \Omega
 \end{aligned}
 $$
+
 注意到这里 $y_{r}$ 不是 $0-1$ 的，这样进行线性松弛的时候就可以避免 $y_{r} \leq 1$ 这个约束
 > 显然 $y_{r}\geq 2$ 的时候不会是最优的
 
@@ -218,10 +220,10 @@ $$
 如果使用 Set partitioning model, $\alpha$ 就会变成自由变量，会使得收敛变慢
 
 
->$\Omega_{1} \subseteq \Omega$, 设 $\lambda ^{*}$ 是 $D(\Omega_{1})$ 的最优解，如果 $\lambda ^{*}$ 对 $D(\Omega)$ 是可行的，那么 $\lambda ^{*}$ 也是 $D(\Omega)$ 的最优解 
+>$\Omega_{1} \subseteq \Omega$, 设 $\lambda ^{\ast}$ 是 $D(\Omega_{1})$ 的最优解，如果 $\lambda ^{\ast}$ 对 $D(\Omega)$ 是可行的，那么 $\lambda ^{\ast}$ 也是 $D(\Omega)$ 的最优解 
 
 
-考虑 $D(\Omega_{1})$ 的最优解 $\lambda ^{*}$, 如果对 $D(\Omega)$ 可行，那么 $\lambda ^{*}$ 同时解决了 $D(\Omega)$ 和 $MP(\Omega)$, 否则说明若干个从 $\Omega \setminus \Omega_{1}$ 推导出的约束 are violated. 对偶问题有不满足的约束，也就是 $MP$ 问题有 $<0$ 的 reduced cost. 
+考虑 $D(\Omega_{1})$ 的最优解 $\lambda ^{\ast}$, 如果对 $D(\Omega)$ 可行，那么 $\lambda ^{\ast}$ 同时解决了 $D(\Omega)$ 和 $MP(\Omega)$, 否则说明若干个从 $\Omega \setminus \Omega_{1}$ 推导出的约束 are violated. 对偶问题有不满足的约束，也就是 $MP$ 问题有 $<0$ 的 reduced cost. 
 
 
 ### 2.1.2. 子问题
@@ -250,6 +252,7 @@ $$
 ### 2.1.3. Branching scheme 
 
 需要有一个精妙的分支结构，, 步骤如下：
+
 - 求解了 $MP(\Omega_{1})$ 后，选择一个 $(i, j)\in A$, 使得 $0<x_{ij}< 1$, 这里 $x_{ij}$ 可以通过 $y_{r}, r\in \Omega_{1}$ 求得
 - 生成两个 branches:
 	- 删除这条边 $x_{ij}=0$
