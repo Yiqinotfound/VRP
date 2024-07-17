@@ -232,11 +232,13 @@ class ESPPRC:
                     to_be_extended.append(to_label)
                 to_node.labels.append(to_label)
         self.end.labels.sort(key=lambda x: x.cost)
+        
         for label in self.end.labels:
             if self.check_path(label.path):
-                self.dp_path = label.path
-                self.dp_objective = label.cost
-                break
+                    self.dp_path = label.path
+                    self.dp_objective = label.cost
+                    break 
+                    
 
     def check_path(self, path: List[int]):
         for route in self.forbidden_routes:

@@ -3,6 +3,7 @@
 import sys
 import os
 import time
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
@@ -54,7 +55,7 @@ class VRPTW:
         MIP_model = Model("VRPTW_three_index")
 
         # 设置Gap
-        MIP_model.setParam("MIPGAP", 0.01)
+        MIP_model.setParam("MIPGAP", 0)
 
         # 创建变量
 
@@ -144,7 +145,7 @@ class VRPTW:
     def column_generation_solve(self):
 
         # 获取初始routes
-        initial_paths = self.get_naive_paths() + self.get_greedy_paths()
+        initial_paths = self.get_naive_paths() 
 
         route_costs = np.array([self.cal_path_cost(path) for path in initial_paths])
         arc_matrixes = [self.get_arc_matrix_from_path(path) for path in initial_paths]
@@ -159,9 +160,6 @@ class VRPTW:
             routes=routes,
         )
         self.initial_solution_node.solve()
-
-
-            
 
     # 用贪心法获取初始paths
     def get_greedy_paths(self):
@@ -376,14 +374,13 @@ class SolutionNode:
 
         self.solution_routes = None
 
-        self.forbid_arc_node = None 
+        self.forbid_arc_node = None
         self.retain_arc_node = None
 
         self.id = SolutionNode._id_counter
         SolutionNode._id_counter += 1
-        print('创建节点',self.id)
-        
-        
+        print("创建节点", self.id)
+        self.print_routes()
 
     def solve(self):
 
@@ -398,9 +395,30 @@ class SolutionNode:
         if self.master_problem.Status != GRB.OPTIMAL:
             self.feasible = False
             return
-        print(self.id,'节点RMP求解成功',self.master_problem.objVal)
+        print('-'*40)
+        print(self.id, "节点RMP求解成功", self.master_problem.objVal)
         self.y = self.master_problem.getAttr("x", self.master_problem.getVars())
+        print('y=',self.y)
+        print('-'*40)
 
+        A = self.master_problem.getA().todense()
+        B = np.empty((A.shape[0],0), dtype=A.dtype)
+        column_num = self.node_num - 2
+        for i in range(len(self.y)):
+            if self.y[i] > 0:
+                column = A[:,i]
+                B = np.column_stack((B,column))
+                column_num -= 1
+                if column_num == 0:
+                    break 
+        if column_num:
+            for i in range(len(self.y)):
+                if self.y[i] == 0:
+                    column = A[:,i]
+                    B = np.column_stack((B,column))
+                    column_num -= 1
+                    if column_num == 0:
+                        break 
 
         # visit_constraints的对偶变量
         self.duals = self.master_problem.getAttr("pi", self.visit_constraints)
@@ -419,9 +437,10 @@ class SolutionNode:
             if all(y == 0 or y == 1 for y in self.y):
                 self.optimal = True
                 self.objective = self.master_problem.objVal
-                self.solution_routes = [self.routes[i] for i in range(self.route_num()) if self.y[i] == 1]
+                self.solution_routes = [
+                    self.routes[i] for i in range(self.route_num()) if self.y[i] == 1
+                ]
                 return
-
 
             # 计算流量矩阵
             self.flow_matrix = sum(
@@ -468,12 +487,14 @@ class SolutionNode:
 
             self.objective = min(self.retain_objective, self.forbid_objective)
         else:
+            print('min_rc=',min_rc)
             new_path = self.sub_problem.dp_path
             new_path_cost = self.cal_path_cost(new_path)
             new_path_arc_matrix = self.get_arc_matrix_from_path(new_path)
             new_route = Route(new_path, new_path_arc_matrix, new_path_cost)
             self.routes.append(new_route)
-            print('节点',self.id,'增加了',new_path,'现在有',len(self.routes),'条路径')
+            print('节点',self.id,'增加了',new_path,'条路径')
+            self.print_routes()
             self.generated += 1
             self.solve()
 
@@ -498,11 +519,14 @@ class SolutionNode:
         # 访问约束
         self.visit_constraints = self.master_problem.addConstrs(
             quicksum(self.visits_vector[i, r] * y[r] for r in range(len(self.routes)))
-            >= 1
+            == 1
             for i in self.N
         )
-        
-                    
+
+        if len(self.routes) == 7:
+            self.master_problem.write('problem7.lp')
+        if len(self.routes) == 6:
+            self.master_problem.write('problem6.lp')
 
     def generate_SP(self):
         self.sub_problem = ESPPRC(
@@ -530,10 +554,10 @@ class SolutionNode:
         return len(self.routes)
 
     def get_fractional_arc(self, flow_matrix: np.ndarray):
-        self.fractional_arcs:List[Tuple] = []
+        self.fractional_arcs: List[Tuple] = []
         arc = None
-        for i in range(1,len(flow_matrix)):
-            for j in range(len(flow_matrix)-1):
+        for i in range(1, len(flow_matrix)):
+            for j in range(len(flow_matrix) - 1):
                 if flow_matrix[i, j] != 0 and self.flow_matrix[i, j] != 1:
                     arc = (i, j)
                     break
@@ -577,8 +601,8 @@ class SolutionNode:
 
 
 def main():
-    CUSTOMER_NUM = 100
-    VEHICLE_NUM = 100
+    CUSTOMER_NUM = 5
+    VEHICLE_NUM = 50
     VEHICLE_CAPACITY = 200
     digraph = initialize_graph(
         data_path="dataset/Solomon/R101.txt", customer_num=CUSTOMER_NUM
@@ -586,17 +610,17 @@ def main():
     model = VRPTW(
         digraph=digraph, vehicle_num=VEHICLE_NUM, vehicle_capacity=VEHICLE_CAPACITY
     )
-    # start = time.time()
-    # model.violently_solve()
-    # end = time.time()
-    # print("MIP求解时间:", end - start)
-
+    start = time.time()
+    model.violently_solve()
+    end = time.time()
+    mip_time = end - start
     start = time.time()
     model.column_generation_solve()
     end = time.time()
+    print("MIP求解时间:", mip_time)
     print("CG求解时间:", end - start)
-    
-    print(model.initial_solution_node.objective)
+
+    print(model.initial_solution_node.objective,model.mip_objective)
 
 
 if __name__ == "__main__":

@@ -163,3 +163,99 @@ $$
 $$
 
 子问题是ESPPRC问题，需要用到[动态规划求解ESPPRC](ESPPRC/ESPPRC.md)的知识
+
+
+## Branch and Price
+
+[[Branch and Price|这里有简单的介绍]]
+
+### 主问题和列生成
+
+使用 **Set covering Model**, 它的松弛可以得到**更好的下界** 
+$$
+\begin{aligned}
+	\min & \quad \sum_{r \in \Omega}c_{r}y_{r}\\
+	\text{s.t.} &\quad \sum_{r \in \Omega}a_{ir}y_{r} \geq 1& \forall i \in N\\
+	&\quad \sum_{r \in \Omega}y_{r} \leq U\\
+	 & \quad y_{r}  \in \mathbb{N}  & \forall   r \in \Omega
+\end{aligned}
+$$
+注意到这里 $y_{r}$ 不是 $0-1$ 的，这样进行线性松弛的时候就可以避免 $y_{r} \leq 1$ 这个约束
+> 显然 $y_{r}\geq 2$ 的时候不会是最优的
+
+
+这个模型的线性松弛的解**可以转化为MIP model 线性松弛的解**，反过来就不一定了 
+
+由于 $\Omega$ 的大小随着 $n$ 的大小是指数增长的，必须用列生成求解 
+
+
+**MP**是原问题的线性松弛, 再将 $\Omega$ 限制为 $\Omega_{1} \subseteq \Omega$ 就得到 **RMP** $MP(\Omega_{1})$
+
+$$
+\begin{aligned}
+ & MP(\Omega_{1})\\
+	\min & \quad \sum_{r \in \Omega}c_{r}y_{r}\\
+	\text{s.t.} &\quad  \sum_{r \in \Omega_{1}}a_{ir}y_{r} \geq 1 & \forall i \in N\\
+	&\quad \sum_{r \in \Omega_{1}}y_{r}\leq \lvert K \rvert  \\
+	& \quad y_{r}\geq 0 & \forall r \in \Omega_{1}
+\end{aligned}
+$$
+
+
+
+$MP(\Omega_{1})$ 的对偶 $D(\Omega_{1})$, 第一个约束的对偶变量为 $\alpha_{i}, i \in N$, 第二个约束的对偶变量为 $\lambda_{0}$
+
+$$
+\begin{aligned}
+& D(\Omega_{1})\\
+	\max & \quad \sum_{i \in N} \alpha_{i} + \lvert K \rvert \lambda_{0} \\
+	\text{s.t.} &\quad \sum_{i \in N}a_{ir}\alpha_{i} +\lambda_{0} \leq c_{r} & (r \in \Omega_{1}) \\
+	&\quad \alpha_{i}  \geq0 & (i \in N)\\ 
+	&\quad \lambda_{0}\leq 0
+\end{aligned}
+$$
+
+如果使用 Set partitioning model, $\alpha$ 就会变成自由变量，会使得收敛变慢
+
+
+>$\Omega_{1} \subseteq \Omega$, 设 $\lambda ^{*}$ 是 $D(\Omega_{1})$ 的最优解，如果 $\lambda ^{*}$ 对 $D(\Omega)$ 是可行的，那么 $\lambda ^{*}$ 也是 $D(\Omega)$ 的最优解 
+
+
+考虑 $D(\Omega_{1})$ 的最优解 $\lambda ^{*}$, 如果对 $D(\Omega)$ 可行，那么 $\lambda ^{*}$ 同时解决了 $D(\Omega)$ 和 $MP(\Omega)$, 否则说明若干个从 $\Omega \setminus \Omega_{1}$ 推导出的约束 are violated. 对偶问题有不满足的约束，也就是 $MP$ 问题有 $<0$ 的 reduced cost. 
+
+
+### 2.1.2. 子问题
+
+**Subproblem** 就是要找到这样的路径 $r \in \Omega \setminus \Omega_{1}$，再将这条路径加入 $\Omega_{1}$ 中重新求解 
+
+设 $\alpha_{i}$ 是约束 $\sum_{r}a_{ir}y_{r}=1, i \in N$ 的对偶变量, 且令 $\alpha_{0}=0$ 那么 $y_{r}$ 的 reduced cost 就是 $c_{r}-\sum_{i \in N}a_{ir}\alpha_{i}-\lambda_{0}^{\ast}$，等价形式为 $\sum_{(i,j) \in A}(c_{ij}-\alpha_{i})x_{ij}$ 
+
+$$
+\begin{aligned}
+&\quad (SP)\\
+	\min & \quad \sum_{(i,j) \in A}(c_{ij}-\alpha_{i})x_{ij}\\
+	\text{s.t.} &\quad \sum_{j \in \delta^{+}(0)}x_{0j}=1\\
+	&\quad \sum_{i \in \delta^{-}(j)}x_{ij} - \sum_{i \in \delta^{+}(j)}x_{ji} = 0   & \forall j \in N\\ 
+	& \sum_{i \in \delta^{-}(n+1)}x_{i,n+1}=1 \\ 
+	& x_{ij}(T_{i}+s_{i}+t_{ij}-T_{j})\leq 0  & \forall (i,j) \in A \\ 
+	& \quad a_{i} \leq T_{i} \leq b_{i} & \forall i \in V \\ 
+	& \quad \sum_{i \in N}q_{i}\sum_{j \in \delta^{+}(i)} x_{ij} \leq Q, \\ 
+	& \quad x_{ij}\in \{ 0,1 \} & \forall(i,j)\in A
+\end{aligned}
+$$
+
+
+这是一个 ESPPRC 问题
+
+### 2.1.3. Branching scheme 
+
+需要有一个精妙的分支结构，, 步骤如下：
+- 求解了 $MP(\Omega_{1})$ 后，选择一个 $(i, j)\in A$, 使得 $0<x_{ij}< 1$, 这里 $x_{ij}$ 可以通过 $y_{r}, r\in \Omega_{1}$ 求得
+- 生成两个 branches:
+	- 删除这条边 $x_{ij}=0$
+	- 保留这条边 $x_{ij}=1$
+
+删除: 把 MP 中包含 $(i,j)$ 的 route 删去, 子问题中 $(i,j)$ 也要被删除，确保不会有包含 $(i,j)$ 的 route 生成
+保留：禁止 $(i,l),l\neq j$ 的边
+
+[VRPTW的代码实现](VRPTW/VRPTW.py)
